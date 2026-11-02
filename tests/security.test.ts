@@ -18,7 +18,7 @@ describe('credential boundaries', () => {
     expect(rx.test('https://demo-123.sprites.app/')).toBe(true);
     expect(rx.test('wss://demo-123.sprites.app/hmr')).toBe(true);
     expect(rx.test('https://demo-123.sprites.app.evil/')).toBe(false);
-    expect(rule.action.requestHeaders?.[0].header).toBe('X-Sprites-Authorization');
+    expect(rule.action.requestHeaders).toEqual([{header:'X-Sprite-Authorization',operation:'set',value:'Bearer secret'}]);
     expect(()=>previewHostname('https://evil.test/')).toThrow();
     expect(()=>previewHostname('https://demo.sprites.app/?token=bad')).toThrow();
   });

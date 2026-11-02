@@ -1,14 +1,14 @@
 # Validation
 
-Current extension version: **0.1.6**. Validation completed on 2 November 2026.
+Current extension version: **0.1.7**. Validation completed on 2 November 2026.
 
 ## Automated checks
 
 | Check | Result |
 | --- | --- |
-| Vitest extension/core/UI tests | 220 passed on v0.1.6 |
+| Vitest extension/core/UI tests | 220 passed on v0.1.7 |
 | Executable Python runner tests | 89 passed |
-| Playwright Chromium extension tests | Six passed in the full security-review run; the native-sidebar case passed after the focused-sidebar change |
+| Playwright Chromium extension tests | Six passed on v0.1.7 |
 | TypeScript, production build, packaged ZIP integrity | Passed |
 | Locked npm dependency advisory scan | Zero known advisories at review time |
 
@@ -24,7 +24,7 @@ Browser tests load the built extension in an isolated Chromium profile against l
 - GitHub retaining focus through readiness, background previews, and explicit workspace-tab opening.
 - Plain-text logs, stale selection/credential protection, and 360-pixel light/dark layouts without horizontal overflow.
 
-The dedicated preview-header tests use local fixtures. They do not establish deployment of the separate API change.
+The preview-header browser tests use local fixtures. They do not qualify the existing API header on every deployed route or organization.
 
 ## Live qualification
 
@@ -58,7 +58,17 @@ Build outputs, browser screenshots, raw test receipts, and local diagnostic hist
 
 ## Release state
 
-- The default release has `previewAuthVerified:false` and uses existing private browser-login previews. Setup and terminals work without the companion API change.
+- The default release has `previewAuthVerified:false` and uses existing private browser-login previews. Setup and terminals do not depend on preview-header authentication.
 - Seamless preview-header injection remains disabled pending deployed API qualification for warm/cold HTTP replay, subresources, WebSockets, invalid/revoked/wrong-organization credentials, temporary validation failures, and public-setting drift.
-- The unpacked extension is built in `dist/`; `npm run package` creates `artifacts/sprites-launch-extension-0.1.6.zip`.
-- Chrome Web Store publication and the companion API deployment are separate release steps.
+- The unpacked extension is built in `dist/`; `npm run package` creates `artifacts/sprites-launch-extension-0.1.7.zip`.
+- Chrome Web Store publication and qualification of the existing API organization feature are separate release steps.
+
+## Existing preview header qualification
+
+The extension now targets `X-Sprite-Authorization`, the existing API protocol, rather than the proposed plural header. Upstream source review confirmed support for private legacy and service URLs when the destination organization has `target_header_routing` enabled. It also confirmed credential removal through HTTP replay and WebSocket proxying, preserving distinct app authorization. Private failures are generally 401, including wrong-organization credentials; validation outages are 503. Public destinations remain public even with invalid dedicated credentials.
+
+A disposable live test in the designated test organization verified dedicated-header removal and distinct app-authorization preservation for warm and cold HTTP/WebSocket requests, with a changed VM boot ID. Inert credentials were used for the public recording-app checks before any real credential was sent to the private URL.
+
+The private dedicated-header request returned HTTP 302, while an ordinary bearer control returned HTTP 200. The existing header was therefore not active for private authentication on the tested deployed organization/route. Private negative-token and outage behavior was reviewed in source but not live-qualified through an active dedicated-header path. No feature flags or deployments were changed. The disposable Sprite was identity checked, deleted, and confirmed absent with HTTP 404.
+
+`previewAuthVerified:false` remains the default. The optional local receipt is `artifacts/existing-preview-header-live-2026-11-02.json`; raw account credentials and header traces are not saved. No new API merge is required for the existing protocol, and the superseded local API patch is not part of this repository.

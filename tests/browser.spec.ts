@@ -50,7 +50,7 @@ test.beforeAll(async () => {
   server = createServer({ key, cert }, async (req, res) => {
     const host = (req.headers.host ?? '').split(':')[0];
     const url = new URL(req.url ?? '/', `https://${host}`);
-    observed.push({ host, pathname: url.pathname, authorization: req.headers.authorization, previewAuthorization: req.headers['x-sprites-authorization'] as string | undefined, websocket: false });
+    observed.push({ host, pathname: url.pathname, authorization: req.headers.authorization, previewAuthorization: req.headers['x-sprite-authorization'] as string | undefined, websocket: false });
     const json = (value: unknown, status = 200) => { res.writeHead(status, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(value)); };
     if (host === 'api.github.com') {
       if (url.pathname === '/repos/acme/web') return json({ private: false, default_branch: 'main' });
@@ -102,7 +102,7 @@ test.beforeAll(async () => {
   server.on('upgrade', (req, socket) => {
     const host = (req.headers.host ?? '').split(':')[0];
     const url = new URL(req.url ?? '/', `https://${host}`);
-    observed.push({ host, pathname: url.pathname, authorization: req.headers.authorization, previewAuthorization: req.headers['x-sprites-authorization'] as string | undefined, websocket: true });
+    observed.push({ host, pathname: url.pathname, authorization: req.headers.authorization, previewAuthorization: req.headers['x-sprite-authorization'] as string | undefined, websocket: true });
     if (host === 'api.sprites.dev' && req.headers.authorization !== `Bearer ${TOKEN}`) { socket.end('HTTP/1.1 401 Unauthorized\r\nContent-Length: 0\r\n\r\n'); return; }
     const key = req.headers['sec-websocket-key'];
     if (!key) { socket.destroy(); return; }
@@ -249,7 +249,7 @@ test('browser sign-in stores credentials only in trusted extension storage', asy
   expect(JSON.stringify(privilegedRead.result.value)).not.toContain(TOKEN);
 });
 
-test('full workspace launch reuses the exact SHA and keeps browser preview credential-free before API release', async ({}, testInfo) => {
+test('full workspace launch reuses the exact SHA and keeps browser preview credential-free before preview-auth qualification', async ({}, testInfo) => {
   const ui = await openExtension();
   await connect(ui);
   await ui.reload();
@@ -407,6 +407,9 @@ test('actual Chrome DNR preview rules authenticate only the owned exact host and
   expect(scoped.some((item) => item.pathname === '/' && !item.websocket)).toBe(true);
   expect(scoped.some((item) => item.pathname === '/asset')).toBe(true);
   for (const request of scoped) expect(request.previewAuthorization).toBe(`Bearer ${TOKEN}`);
+  await page.evaluate(async () => { await fetch('/with-app-auth', { headers: { Authorization: 'Bearer application-fixture-token' } }); });
+  await expect.poll(() => observed.find((item) => item.pathname === '/with-app-auth')?.authorization).toBe('Bearer application-fixture-token');
+  expect(observed.find((item) => item.pathname === '/with-app-auth')?.previewAuthorization).toBe(`Bearer ${TOKEN}`);
   const otherTab = await context.newPage();
   await otherTab.goto('https://owned.sprites.app/other-tab');
   await page.goto('https://other.sprites.app/other-host');
