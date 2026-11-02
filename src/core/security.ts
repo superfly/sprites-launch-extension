@@ -12,7 +12,7 @@ export function execRule(id:number,sprite:string,token:string,extensionId:string
 }
 export function previewRule(id:number,url:string,tabId:number,token:string):chrome.declarativeNetRequest.Rule {
   const hostname=previewHostname(url);
-  return {id,priority:1,action:{type:'modifyHeaders' as chrome.declarativeNetRequest.RuleActionType,requestHeaders:[{header:'X-Sprites-Authorization',operation:'set' as chrome.declarativeNetRequest.HeaderOperation,value:`Bearer ${token}`}]},condition:{regexFilter:`^(https|wss)://${escaped(hostname)}(/|$)`,tabIds:[tabId],resourceTypes:['main_frame','sub_frame','stylesheet','script','image','font','object','xmlhttprequest','ping','csp_report','media','websocket','other'] as chrome.declarativeNetRequest.ResourceType[]}};
+  return {id,priority:1,action:{type:'modifyHeaders' as chrome.declarativeNetRequest.RuleActionType,requestHeaders:[{header:'X-Sprite-Authorization',operation:'set' as chrome.declarativeNetRequest.HeaderOperation,value:`Bearer ${token}`}]},condition:{regexFilter:`^(https|wss)://${escaped(hostname)}(/|$)`,tabIds:[tabId],resourceTypes:['main_frame','sub_frame','stylesheet','script','image','font','object','xmlhttprequest','ping','csp_report','media','websocket','other'] as chrome.declarativeNetRequest.ResourceType[]}};
 }
 export function validateOverrides(value:unknown):LaunchOverrides {
   if (!value || typeof value !== 'object') throw new Error('Invalid launch settings.');

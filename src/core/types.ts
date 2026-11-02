@@ -55,7 +55,7 @@ export interface LaunchRecord {
 export interface Profile { org: string; token: string }
 export interface Settings {
   currentOrg?: string;
-  /** False in all distributed builds until the dedicated preview-header API is deployed and verified. */
+  /** False until the existing preview header is verified for the deployed route and organization. */
   previewAuthVerified: boolean;
 }
 export interface Snapshot {

@@ -13,7 +13,7 @@ npm ci
 npm run package
 ```
 
-In Chrome, open `chrome://extensions`, enable **Developer mode**, choose **Load unpacked**, and select this project's `dist` directory. The distributable ZIP is `artifacts/sprites-launch-extension-0.1.6.zip`.
+In Chrome, open `chrome://extensions`, enable **Developer mode**, choose **Load unpacked**, and select this project's `dist` directory. The distributable ZIP is `artifacts/sprites-launch-extension-0.1.7.zip`.
 
 The GitHub button and Chrome toolbar action open the progress side panel. While tracking a launch, the panel focuses on progress; **Launch another repo** explicitly opens the repository form. It keeps GitHub selected through setup; automatic previews open in a background browser tab, and **Open private preview** brings a preview forward. If Chrome cannot open the panel, the full workspace tab remains the fallback. Closing the panel retains the Sprite and setup.
 
@@ -23,13 +23,15 @@ Use **Connect Sprites** to sign in through the existing browser login flow and s
 
 The default build **does not inject credentials into preview sites**. It opens private previews using the existing Sprite browser sign-in flow, which can require another sign-in. Interactive terminals and automatic setup still work directly through the API.
 
-Seamless private previews require the companion `sprites-api` patch adding `X-Sprites-Authorization`. That header must fail closed and be removed by the proxy before any app request is replayed, including WebSocket requests. Deploy and verify that patch before producing an enabled build:
+Seamless private previews use the API's existing `X-Sprite-Authorization` header. The destination organization must have `target_header_routing` enabled, including for legacy Sprite hostnames. With the flag off, the API strips the header but does not use it for authentication. The extension does not change organization feature flags. Before producing an enabled build, verify private authentication and credential removal on the actual deployed route, including WebSocket requests, while preserving distinct application `Authorization`:
 
 ```sh
 VITE_PREVIEW_AUTH_VERIFIED=true npm run package
 ```
 
-This is a build-time release switch, not a user preference. Check `dist/release-status.json`. Do not enable it based only on passing local unit tests. Deployment qualification must include an app recording received headers on warm/cold HTTP, subresources, and HMR WebSocket requests; invalid/revoked/wrong-org credentials; temporary validation failure; and public-setting drift.
+This is a build-time release switch, not a user preference. Check `dist/release-status.json`. A merged upstream PR or passing local unit tests does not qualify every deployed route or organization. Deployment qualification must include an app recording received headers on warm/cold HTTP, subresources, and HMR WebSocket requests; invalid/revoked/wrong-org credentials; temporary validation failure; and public-setting drift.
+
+The existing API contract keeps public destinations public even when dedicated credentials are invalid; private destinations reject invalid credentials, generally with HTTP 401, and return 503 on validation outages. The extension checks current Sprite identity, URL, and private settings before opening a preview or restoring a rule. No second authentication header or companion API merge is required for this protocol.
 
 Chrome requires explicit WSS host permissions. Actual Chromium testing also established that setup WebSockets must originate in an extension document: header injection is unreliable for service-worker-created WebSockets. A trusted launch-page port performs only the session acknowledgement; setup then continues remotely even when the page closes.
 

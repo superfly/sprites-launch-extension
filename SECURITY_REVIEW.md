@@ -27,10 +27,10 @@ The panel reuses the trusted setup WebSocket bridge. Chromium verification opens
 - REST requests reject redirects; terminal rules target this extension's origin and exact API exec paths. Preview rules target one exact API-returned hostname and tab.
 - Repository install scripts, tasks, and application code run with the normal Sprite user's permissions. Database guards prevent automatic migrations against an unintended effective target; they do not sandbox actively malicious repository code from itself.
 - Source resolution remains public-GitHub-only and pinned to a verified SHA. Retry/cancel retain files, and deletion is explicit and identity checked.
-- Seamless preview credential injection remains disabled. The companion API change has not been deployed or qualified; existing private browser-cookie authentication remains in use.
+- The default build keeps seamless preview credential injection disabled pending qualification of the API's existing `X-Sprite-Authorization` header for the actual preview route and organization. A second header is not introduced; existing private browser-cookie authentication remains the fallback.
 
 ## Validation receipts
 
 Build outputs and local receipts under `artifacts/` are not committed. The references below identify local review evidence; use the documented commands to generate fresh results.
 
-See `VALIDATION.md` for final counts and delivery, `artifacts/npm-audit-2026-11-02.json` for the point-in-time dependency audit, and `artifacts/security-rails-live-2026-11-02.json` for the focused disposable-Sprite tests and cleanup receipt. Browser fixtures prove extension behavior locally; they do not establish deployment of the separate preview-header API change.
+See `VALIDATION.md` for final counts and delivery, `artifacts/npm-audit-2026-11-02.json` for the point-in-time dependency audit, and `artifacts/security-rails-live-2026-11-02.json` for the focused disposable-Sprite tests and cleanup receipt. Browser fixtures prove extension behavior locally; they do not qualify the existing preview-authentication header on every deployed route or organization.
