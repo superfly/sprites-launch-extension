@@ -6,7 +6,11 @@ import type { Rules } from '../src/core/rules';
 import type { LaunchRecord } from '../src/core/types';
 
 // Exercise the gated release path without enabling it in any built extension.
-vi.mock('../src/core/storage',async original=>({...await original<typeof import('../src/core/storage')>(),PREVIEW_AUTH_VERIFIED:true}));
+vi.mock('../src/core/storage',async original=>{
+  const policy=await import('../src/core/preview-policy.mjs');
+  const qualified=policy.parsePreviewAuthPolicy(true,'42');
+  return {...await original<typeof import('../src/core/storage')>(),PREVIEW_AUTH_VERIFIED:true,previewAuthAllowed:(profile:{token:string}|undefined)=>policy.previewAuthAllowed(profile,qualified)};
+});
 
 const record:LaunchRecord={id:'12345678-1234-4321-1234-123456789abc',org:'owning-org',spriteName:'gh-example-12345678',spriteId:'original-id',url:'https://original.sprites.app',phase:'ready',provisioned:true,createdAt:'2026-11-02T00:00:00Z',updatedAt:'2026-11-02T00:00:00Z',target:{owner:'example',repo:'app',kind:'branch',ref:'main',sha:'a'.repeat(40),cloneUrl:'https://github.com/example/app.git',fetchRef:'refs/heads/main',sourceUrl:'https://github.com/example/app'}};
 
@@ -18,7 +22,7 @@ beforeEach(()=>{
 
 async function environment() {
   const store=new Store();
-  await store.saveProfile({org:record.org,token:'private-org-token'});
+  await store.saveProfile({org:record.org,token:'owning-org/42/test-id/private-org-token'});
   await store.save({...record});
   const api={get:vi.fn(async()=>({id:record.spriteId,name:record.spriteName,url:record.url,url_settings:{auth:'sprite'}})),read:vi.fn()};
   const rules={preview:vi.fn(async()=>{}),clear:vi.fn(async()=>{})};
@@ -29,9 +33,9 @@ async function environment() {
 describe('private preview ownership',()=>{
   it('checks the owning organization and current Sprite before injecting or navigating',async()=>{
     const {controller,store,api,rules,apiFactory}=await environment();
-    await store.saveProfile({org:'another-org',token:'another-token'});
+    await store.saveProfile({org:'another-org',token:'another-org/84/test-id/another-token'});
     await expect(controller.preview(record.id)).resolves.toEqual({tabId:17,authentication:'extension'});
-    expect(apiFactory).toHaveBeenCalledExactlyOnceWith({org:record.org,token:'private-org-token'});
+    expect(apiFactory).toHaveBeenCalledExactlyOnceWith({org:record.org,token:'owning-org/42/test-id/private-org-token'});
     expect(api.get).toHaveBeenCalledExactlyOnceWith(record.spriteName);
     expect(api.get.mock.invocationCallOrder[0]).toBeLessThan(vi.mocked(chrome.tabs.create).mock.invocationCallOrder[0]);
     expect(rules.preview.mock.invocationCallOrder[0]).toBeLessThan(vi.mocked(chrome.tabs.update).mock.invocationCallOrder[0]);
@@ -44,6 +48,14 @@ describe('private preview ownership',()=>{
     await expect(controller.preview(record.id)).rejects.toThrow('different Sprite');
     expect(chrome.tabs.create).not.toHaveBeenCalled();
     expect(rules.preview).not.toHaveBeenCalled();
+  });
+
+  it('keeps private browser sign-in for an unqualified token even if its slug matches a qualified profile',async()=>{
+    const {controller,store,rules}=await environment();
+    await store.saveProfile({org:record.org,token:'owning-org/84/test-id/private-org-token'});
+    await expect(controller.preview(record.id)).resolves.toEqual({tabId:17,authentication:'browser'});
+    expect(rules.preview).not.toHaveBeenCalled();
+    expect(chrome.tabs.update).toHaveBeenCalledWith(17,{url:record.url});
   });
 
   it.each([{auth:'public'},{auth:'unknown'},undefined])('refuses public or unverified URL settings: %o',async(settings)=>{
@@ -89,6 +101,16 @@ describe('private preview ownership',()=>{
 });
 
 describe('preview rule restoration',()=>{
+  it('does not restore a rule after the connected token changes to an unqualified numeric organization',async()=>{
+    const {controller,store,api,rules}=await environment();
+    await store.saveProfile({org:record.org,token:'owning-org/84/test-id/private-org-token'});
+    await chrome.storage.local.set({previewBindings:{17:{launchId:record.id,hostname:'original.sprites.app'}}});
+    await controller.rebuildRules();
+    expect(rules.clear).toHaveBeenCalledOnce();
+    expect(api.get).not.toHaveBeenCalled();
+    expect(rules.preview).not.toHaveBeenCalled();
+  });
+
   it.each([
     {id:record.spriteId,url:record.url,url_settings:{auth:'sprite'},restore:true},
     {id:record.spriteId,url:record.url,url_settings:null,restore:true},

@@ -55,8 +55,10 @@ export interface LaunchRecord {
 export interface Profile { org: string; token: string }
 export interface Settings {
   currentOrg?: string;
-  /** False until the existing preview header is verified for the deployed route and organization. */
+  /** Whether the currently selected organization's token is qualified by this build. */
   previewAuthVerified: boolean;
+  /** Connected organization names qualified by their canonical numeric token org ID. */
+  previewAuthOrganizations?: string[];
 }
 export interface Snapshot {
   settings: Settings;

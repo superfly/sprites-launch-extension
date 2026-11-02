@@ -1,14 +1,14 @@
 # Validation
 
-Current extension version: **0.1.7**. Validation completed on 2 November 2026.
+Current source version: **0.1.8**. Published prerelease: **0.1.7**. Validation updated on 2 November 2026.
 
 ## Automated checks
 
 | Check | Result |
 | --- | --- |
-| Vitest extension/core/UI tests | 220 passed on v0.1.7 |
+| Vitest extension/core/UI tests | 260 passed on v0.1.8 |
 | Executable Python runner tests | 89 passed |
-| Playwright Chromium extension tests | Six passed on v0.1.7 |
+| Playwright Chromium extension tests | Six passed on v0.1.8 |
 | TypeScript, production build, packaged ZIP integrity | Passed |
 | Locked npm dependency advisory scan | Zero known advisories at review time |
 
@@ -58,9 +58,10 @@ Build outputs, browser screenshots, raw test receipts, and local diagnostic hist
 
 ## Release state
 
-- The default release has `previewAuthVerified:false` and uses existing private browser-login previews. Setup and terminals do not depend on preview-header authentication.
+- The [v0.1.7 beta prerelease](https://github.com/superfly/sprites-launch-extension/releases/tag/v0.1.7) contains the ZIP from successful CI run `41371164502`, commit `fec8a5ce730206977404190291f4eef769704ce9`. Its SHA-256 is `5f12e58b7179cfe9fdb53acb750d1119e7e55d178664843146c4aaa886843142`.
+- The published release has `previewAuthVerified:false` and uses existing private browser-login previews. Setup and terminals do not depend on preview-header authentication. Current default builds also record an empty `previewAuthOrgIds` list.
 - Seamless preview-header injection remains disabled pending deployed API qualification for warm/cold HTTP replay, subresources, WebSockets, invalid/revoked/wrong-organization credentials, temporary validation failures, and public-setting drift.
-- The unpacked extension is built in `dist/`; `npm run package` creates `artifacts/sprites-launch-extension-0.1.7.zip`.
+- The unpacked extension is built in `dist/`; `npm run package` currently creates `artifacts/sprites-launch-extension-0.1.8.zip`. This source version is not yet a published release.
 - Chrome Web Store publication and qualification of the existing API organization feature are separate release steps.
 
 ## Existing preview header qualification
@@ -72,3 +73,11 @@ A disposable live test in the designated test organization verified dedicated-he
 The private dedicated-header request returned HTTP 302, while an ordinary bearer control returned HTTP 200. The existing header was therefore not active for private authentication on the tested deployed organization/route. Private negative-token and outage behavior was reviewed in source but not live-qualified through an active dedicated-header path. No feature flags or deployments were changed. The disposable Sprite was identity checked, deleted, and confirmed absent with HTTP 404.
 
 `previewAuthVerified:false` remains the default. The optional local receipt is `artifacts/existing-preview-header-live-2026-11-02.json`; raw account credentials and header traces are not saved. No new API merge is required for the existing protocol, and the superseded local API patch is not part of this repository.
+
+## Scoped preview qualification guard
+
+Enabled builds now require an explicit allowlist of qualified numeric organization IDs. Eligibility uses the numeric authority in an API-validated token rather than its descriptive slug. An unqualified, missing, or unrecognized token retains browser sign-in, including when reopening a saved preview. Rules enforce eligibility inside their serialized installation queue, alongside the current credential check.
+
+The build and runtime share one parser and frozen policy. `release-status.json` records the same allowlist embedded in the bundles. Tests reject empty, malformed, wildcard, and ambiguous enabled settings before the build mutates output; they also cover slug aliases, large integer identities, cross-organization selection, restored previews, and terminal independence. No organization is included in the build defaults. Deployed-route qualification is tracked separately from these code-level controls.
+
+Isolated builds using a synthetic organization ID verified that an enabled allowlist installs one scoped rule, while a disabled switch installs none. Both `.env.production` and explicit environment settings were exercised in each direction; bundled runtime behavior matched the release metadata. These checks left the installed extension output unchanged.

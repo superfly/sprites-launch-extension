@@ -1,6 +1,6 @@
 import type { LaunchRecord, Profile } from './types';
 import { execRule, previewRule, previewHostname } from './security';
-import { Store } from './storage';
+import { previewAuthAllowed, Store } from './storage';
 export class Rules {
   private queue:Promise<unknown>=Promise.resolve();
   private serialized<T>(fn:()=>Promise<T>):Promise<T> {
@@ -31,6 +31,7 @@ export class Rules {
       const saved=(await chrome.storage.session.get(key))[key] as {ruleId:number}|undefined;
       const id=saved?.ruleId??await this.nextId();
       await this.currentProfile(record,profile);
+      if(!previewAuthAllowed(profile))throw new Error('Preview authentication is not qualified for this organization.');
       await this.put(previewRule(id,record.url,tabId,profile.token));
       await chrome.storage.session.set({[key]:{ruleId:id,launchId:record.id,org:record.org,hostname:previewHostname(record.url)}});
       // Persist the exact owned tab for restoration after extension/service-worker restart.

@@ -1,6 +1,9 @@
 import type { LaunchOverrides, LaunchRecord, Profile, Settings, Snapshot } from './types';
+import { parsePreviewAuthPolicy, previewAuthAllowed as allowedByPolicy } from './preview-policy.mjs';
 
-export const PREVIEW_AUTH_VERIFIED = import.meta.env.VITE_PREVIEW_AUTH_VERIFIED === 'true';
+export const PREVIEW_AUTH_POLICY = parsePreviewAuthPolicy(import.meta.env.VITE_PREVIEW_AUTH_VERIFIED, import.meta.env.VITE_PREVIEW_AUTH_ORG_IDS);
+export const PREVIEW_AUTH_VERIFIED = PREVIEW_AUTH_POLICY.enabled;
+export const previewAuthAllowed = (profile:Profile|undefined) => allowedByPolicy(profile,PREVIEW_AUTH_POLICY);
 interface Stored {
   profiles: Record<string, Profile>;
   currentOrg?: string;
@@ -25,7 +28,8 @@ export class Store {
   }
   async snapshot():Promise<Snapshot> {
     const data=await this.read();
-    const settings:Settings={currentOrg:data.currentOrg,previewAuthVerified:PREVIEW_AUTH_VERIFIED};
+    const previewAuthOrganizations=Object.values(data.profiles).filter(previewAuthAllowed).map(profile=>profile.org);
+    const settings:Settings={currentOrg:data.currentOrg,previewAuthVerified:previewAuthAllowed(data.profiles[data.currentOrg??'']),previewAuthOrganizations};
     return {settings,organizations:Object.keys(data.profiles),launches:Object.values(data.launches).sort((a,b)=>b.createdAt.localeCompare(a.createdAt))};
   }
   async profile(org?:string):Promise<Profile> {

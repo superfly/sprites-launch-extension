@@ -18,6 +18,7 @@ concurrency:
 env:
   CI: "true"
   VITE_PREVIEW_AUTH_VERIFIED: "false"
+  VITE_PREVIEW_AUTH_ORG_IDS: ""
 
 jobs:
   extension:
