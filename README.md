@@ -1,5 +1,7 @@
 # Launch on a Sprite
 
+[![CI](https://github.com/superfly/sprites-launch-extension/actions/workflows/ci.yml/badge.svg)](https://github.com/superfly/sprites-launch-extension/actions/workflows/ci.yml)
+
 A standalone Manifest V3 Chrome extension that launches public GitHub repositories and pull request heads in persistent Sprite workspaces.
 
 After connecting a Sprite organization, click **Launch on a Sprite** on GitHub. The extension pins the selected revision, creates a Sprite, installs dependencies, sets up a supported local database, and starts the application. A native Chrome side panel shows progress and logs beside GitHub, with configuration and a reconnectable terminal. **Open workspace tab** opens the larger view. Repeated launches reuse the same organization/repository/commit; **New Sprite** makes a separate workspace.

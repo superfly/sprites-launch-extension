@@ -1,0 +1,122 @@
+name: CI
+
+"on":
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  CI: "true"
+  VITE_PREVIEW_AUTH_VERIFIED: "false"
+
+jobs:
+  extension:
+    name: Extension checks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "24"
+          cache: npm
+      - run: npm ci
+      - name: Audit dependencies
+        run: npm audit --audit-level=high
+      - name: Extension tests
+        run: npm test
+      - name: Type check and package
+        run: npm run package
+      - name: Verify distributable
+        run: python3 scripts/verify-package.py
+      - name: Upload extension ZIP
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: chrome-extension-${{ github.run_number }}-${{ github.run_attempt }}
+          path: artifacts/sprites-launch-extension-*.zip
+          if-no-files-found: error
+          retention-days: 14
+
+  runner:
+    name: Runner tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      SPRITES_TEST_PYTHON: python3.14
+      PYTHONDONTWRITEBYTECODE: "1"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "24"
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.14"
+      - name: Install Ruby fixture tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y ruby rake
+      - name: Verify test runtimes
+        run: |
+          command -v node npm ruby git bash ps sleep
+          ruby -rrake -e 'puts Rake::VERSION'
+          python3.14 -c 'import hashlib; hashlib.scrypt(b"probe", salt=b"probe", n=2, r=1, p=1)'
+      - run: npm run test:runner
+
+  chromium:
+    name: Chromium checks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "24"
+          cache: npm
+      - run: npm ci
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - run: npm run build
+      - run: npm run test:browser
+      - name: Upload browser traces and screenshots
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: chromium-results-${{ github.run_number }}-${{ github.run_attempt }}
+          path: test-results/browser/
+          if-no-files-found: ignore
+          retention-days: 7
+
+  ci:
+    name: CI passed
+    if: always()
+    needs: [extension, runner, chromium]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    permissions: {}
+    steps:
+      - name: Require every check to succeed
+        env:
+          EXTENSION_RESULT: ${{ needs.extension.result }}
+          RUNNER_RESULT: ${{ needs.runner.result }}
+          CHROMIUM_RESULT: ${{ needs.chromium.result }}
+        run: |
+          test "$EXTENSION_RESULT" = success
+          test "$RUNNER_RESULT" = success
+          test "$CHROMIUM_RESULT" = success
