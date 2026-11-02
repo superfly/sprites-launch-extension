@@ -30,6 +30,7 @@ with zipfile.ZipFile(archive) as package:
     assert manifest["manifest_version"] == 3, "Manifest V3 required"
     assert manifest["version"] == release["version"] == version, "Version mismatch"
     assert release["previewAuthVerified"] is False, "Preview credential injection must stay disabled in CI packages"
+    assert release.get("previewAuthOrgIds", []) == [], "Default CI packages must not qualify any organization"
     references = [manifest["background"]["service_worker"]]
     references += list(manifest["icons"].values())
     references += list(manifest["action"]["default_icon"].values())

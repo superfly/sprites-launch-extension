@@ -1,7 +1,7 @@
 import { APIError, execURL, SpritesAPI, startDetached } from './api';
 import { GitHub } from './github';
 import { Rules } from './rules';
-import { PREVIEW_AUTH_VERIFIED, Store } from './storage';
+import { previewAuthAllowed, Store } from './storage';
 import { previewHostname, validateOverrides } from './security';
 import { API_ORIGIN, launchDirectory, type LaunchOverrides, type LaunchRecord, type Profile, type RemoteState, type Request } from './types';
 
@@ -210,10 +210,11 @@ export class Controller {
     // Create a blank tab, install the tab-scoped rule, THEN navigate. Never race the first request.
     const tab=await chrome.tabs.create({url:'about:blank',active});
     if(!tab.id)throw new Error('Could not open the preview tab.');
-    if(PREVIEW_AUTH_VERIFIED)await this.rules.preview(record,profile,tab.id);
+    const qualified=previewAuthAllowed(profile);
+    if(qualified)await this.rules.preview(record,profile,tab.id);
     // Until deployment is verified, the existing browser-cookie login flow is the safe fallback.
     await chrome.tabs.update(tab.id,{url:record.url});
-    return {tabId:tab.id,authentication:PREVIEW_AUTH_VERIFIED?'extension':'browser'};
+    return {tabId:tab.id,authentication:qualified?'extension':'browser'};
   }
   async terminal(id:string,cols:number,rows:number,fresh=false) {
     const record=await this.store.record(id);
@@ -286,7 +287,6 @@ export class Controller {
   async rebuildRules() {
     const bindings=(await chrome.storage.local.get('previewBindings')).previewBindings??{};
     await this.rules.clear();
-    if(!PREVIEW_AUTH_VERIFIED)return;
     for(const [id,binding] of Object.entries(bindings)){
       try{
         const tab=await chrome.tabs.get(Number(id));
@@ -295,6 +295,7 @@ export class Controller {
         const record=await this.store.record(info.launchId);
         if(!record.url||previewHostname(record.url)!==info.hostname)continue;
         const profile=await this.store.profile(record.org);
+        if(!previewAuthAllowed(profile))continue;
         const sprite=await this.apiFactory(profile).get(record.spriteName);
         this.assertIdentity(record,sprite);
         if(previewHostname(sprite.url)!==info.hostname || sprite.url_settings!==null && sprite.url_settings?.auth!=='sprite')continue;

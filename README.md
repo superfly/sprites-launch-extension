@@ -15,7 +15,7 @@ npm ci
 npm run package
 ```
 
-In Chrome, open `chrome://extensions`, enable **Developer mode**, choose **Load unpacked**, and select this project's `dist` directory. The distributable ZIP is `artifacts/sprites-launch-extension-0.1.7.zip`.
+In Chrome, open `chrome://extensions`, enable **Developer mode**, choose **Load unpacked**, and select this project's `dist` directory. The distributable ZIP is `artifacts/sprites-launch-extension-0.1.8.zip`.
 
 The GitHub button and Chrome toolbar action open the progress side panel. While tracking a launch, the panel focuses on progress; **Launch another repo** explicitly opens the repository form. It keeps GitHub selected through setup; automatic previews open in a background browser tab, and **Open private preview** brings a preview forward. If Chrome cannot open the panel, the full workspace tab remains the fallback. Closing the panel retains the Sprite and setup.
 
@@ -28,10 +28,14 @@ The default build **does not inject credentials into preview sites**. It opens p
 Seamless private previews use the API's existing `X-Sprite-Authorization` header. The destination organization must have `target_header_routing` enabled, including for legacy Sprite hostnames. With the flag off, the API strips the header but does not use it for authentication. The extension does not change organization feature flags. Before producing an enabled build, verify private authentication and credential removal on the actual deployed route, including WebSocket requests, while preserving distinct application `Authorization`:
 
 ```sh
-VITE_PREVIEW_AUTH_VERIFIED=true npm run package
+VITE_PREVIEW_AUTH_VERIFIED=true \
+VITE_PREVIEW_AUTH_ORG_IDS="<qualified numeric org IDs, comma-separated>" \
+npm run package
 ```
 
-This is a build-time release switch, not a user preference. Check `dist/release-status.json`. A merged upstream PR or passing local unit tests does not qualify every deployed route or organization. Deployment qualification must include an app recording received headers on warm/cold HTTP, subresources, and HMR WebSocket requests; invalid/revoked/wrong-org credentials; temporary validation failure; and public-setting drift.
+These are build-time release controls, not user preferences. Only qualified numeric organization IDs may be listed; an enabled build with an empty, malformed, or wildcard list fails. Token slugs are descriptive aliases, so eligibility is checked against the numeric ID in an API-validated opaque token. Other organizations and unrecognized token formats retain browser sign-in. The extension does not probe an unqualified preview URL with a real credential.
+
+Check `dist/release-status.json`: it records the same frozen policy used by the bundles, including `previewAuthOrgIds`. The default and CI builds use `false` and an empty list. A merged upstream PR or passing local unit tests does not qualify every deployed route or organization. Deployment qualification must include an app recording received headers on warm/cold HTTP, subresources, and HMR WebSocket requests; invalid/revoked/wrong-org credentials; temporary validation failure; and public-setting drift.
 
 The existing API contract keeps public destinations public even when dedicated credentials are invalid; private destinations reject invalid credentials, generally with HTTP 401, and return 503 on validation outages. The extension checks current Sprite identity, URL, and private settings before opening a preview or restoring a rule. No second authentication header or companion API merge is required for this protocol.
 

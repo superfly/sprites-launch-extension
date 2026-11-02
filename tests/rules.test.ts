@@ -3,7 +3,13 @@ import { Rules } from '../src/core/rules';
 import { Store } from '../src/core/storage';
 import type { LaunchRecord } from '../src/core/types';
 
-const profile={org:'test-org',token:'fixture-management-credential'};
+vi.mock('../src/core/storage',async original=>{
+  const policy=await import('../src/core/preview-policy.mjs');
+  const qualified=policy.parsePreviewAuthPolicy(true,'42');
+  return {...await original<typeof import('../src/core/storage')>(),previewAuthAllowed:(profile:{token:string}|undefined)=>policy.previewAuthAllowed(profile,qualified)};
+});
+
+const profile={org:'test-org',token:'test-org/42/test-id/fixture-management-credential'};
 const record={id:'a'.repeat(36),org:profile.org,spriteName:'gh-demo-123',url:'https://gh-demo-123.sprites.app'} as LaunchRecord;
 let installed:chrome.declarativeNetRequest.Rule[];
 type RuleChange={removeRuleIds?:number[];addRules?:chrome.declarativeNetRequest.Rule[]};
@@ -58,5 +64,15 @@ describe('authorization rule lifetime',()=>{
     expect(installed).toHaveLength(2);
     expect(installed[0].condition.initiatorDomains).toEqual(['self']);
     expect(installed[1].condition.tabIds).toEqual([7]);
+  });
+  it('refuses unqualified preview credentials inside the install queue without restricting terminals',async()=>{
+    const unqualified={org:profile.org,token:'test-org/84/test-id/fixture-management-credential'};
+    await new Store().saveProfile(unqualified);
+    const rules=new Rules();
+    await expect(rules.preview(record,unqualified,7)).rejects.toThrow('not qualified');
+    expect(installed).toEqual([]);
+    await rules.terminal(record,unqualified);
+    expect(installed).toHaveLength(1);
+    expect(installed[0].condition.resourceTypes).toEqual(['websocket']);
   });
 });

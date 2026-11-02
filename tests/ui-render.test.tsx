@@ -33,6 +33,20 @@ beforeEach(() => {
 afterEach(async () => { await act(async () => root.unmount()); vi.unstubAllGlobals(); });
 
 describe('launch page', () => {
+  it('shows preview sign-in guidance for the selected unqualified launch when another organization is qualified', async () => {
+    snapshot.settings = { ...snapshot.settings, currentOrg: 'other', previewAuthVerified: true, previewAuthOrganizations: ['other'] };
+    snapshot.organizations = ['personal', 'other'];
+    await act(async () => root.render(<App />));
+    expect(node.querySelector('.preview-pending')?.textContent).toContain('additional browser sign-in');
+  });
+
+  it('uses the selected launch organization qualification independently of the current organization', async () => {
+    snapshot.settings = { ...snapshot.settings, currentOrg: 'other', previewAuthVerified: false, previewAuthOrganizations: ['personal'] };
+    snapshot.organizations = ['personal', 'other'];
+    await act(async () => root.render(<App />));
+    expect(node.querySelector('.preview-pending')).toBeNull();
+  });
+
   it('renders source revision and enables private preview through browser sign-in before seamless auth is enabled', async () => {
     await act(async () => root.render(<App />));
     expect(node.textContent).toContain('PR #7');
